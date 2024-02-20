@@ -1,6 +1,7 @@
 import requests
 import json
 import item_class
+import os
 
 def run_query(query):
     headers = {"Content-Type": "application/json"}
@@ -10,30 +11,57 @@ def run_query(query):
     else:
         raise Exception("Query failed to run by returning code of {}. {}".format(response.status_code, query))
 
-def GetInformation(itemName):
-    print("ICIIII : " + itemName)
-    req = """
-          {
-              items(name: "%s") {
-                name,
-                shortName,
-                normalizedName,
-                sellFor {
-                    vendor {
-                        name
+def save_items_to_json(items, filename):
+    serialized_items = [serialize_item(item) for item in items]
+    with open(filename, 'w') as file:
+        json.dump(serialized_items, file, indent=4)
+
+def load_items_from_json(filename):
+    if os.path.exists(filename):
+        with open(filename, 'r') as file:
+            serialized_items = json.load(file)
+            return [deserialize_item(item) for item in serialized_items]
+
+def GetInformation():
+    filename = "items.json"
+    if os.path.exists(filename):
+        return load_items_from_json(filename)
+    else:
+        req = """
+            {
+                items {
+                    name,
+                    shortName,
+                    normalizedName,
+                    sellFor {
+                        vendor {
+                            name
+                        }
+                        price
+                        currency
                     }
-                    price
-                    currency
                 }
-              }
-          }
-          """ % itemName.strip().replace('\n', '')
-    return deserialize_item(run_query(req))
+            }
+            """
+        result = run_query(req)
+        save_items_to_json(result["data"]["items"], filename)
+        return deserialize_item(result)
+    
+def serialize_item(item):
+    return {
+        "name": item.name,
+        "short_name": item.short_name,
+        "normalized_name": item.normalized_name,
+        "sell_for": {
+            "vendor": {"name": item.sell_for.vendor.name},
+            "price": item.sell_for.price,
+            "currency": item.sell_for.currency
+        }
+    }
 
 def deserialize_item(dataserialized):
-# Mapper les données en objets Python
     items = []
-    for item_data in dataserialized["data"]["items"]:
+    for item_data in dataserialized:
         name = item_data["name"]
         short_name = item_data["shortName"]
         normalized_name = item_data["normalizedName"]
@@ -46,9 +74,14 @@ def deserialize_item(dataserialized):
             sell_for.append(item_class.Price(vendor, price, currency))
         items.append(item_class.Item(name, short_name, normalized_name, sell_for))
 
-        return items;
+    return item_class.create_items_dictionary(items)
 
-
+def find_item(name_to_find, items_dict):
+    if name_to_find in items_dict:
+        item = items_dict[name_to_find]
+        print("Objet trouvé:", item.name)
+    else:
+        print("Objet non trouvé.")
 
 
 

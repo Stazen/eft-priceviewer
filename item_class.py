@@ -14,3 +14,10 @@ class Price:
         self.vendor = vendor
         self.price = price
         self.currency = currency
+
+
+def create_items_dictionary(items):
+    items_dict = {}
+    for item in items:
+        items_dict[item.name] = item
+    return items_dict
